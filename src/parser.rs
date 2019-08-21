@@ -1,12 +1,13 @@
 use core::fmt;
 use core::ops::Bound::*;
 use core::ops::{BitAnd, BitOr, Mul, Not, RangeBounds, Shl, Shr, Sub};
-use core::cmp::min;
 
+use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 /// We need alloc!
 use alloc::vec::Vec;
-use alloc::sync::Arc;
-use alloc::string::{String, ToString};
+
+use crate::atoms::not;
 
 /// This struct is the Err result when parsing.
 /// It contains a string representing:
@@ -19,7 +20,6 @@ pub struct Error {
     expected: String,
     remaining_input: String,
 }
-
 
 impl Error {
     pub fn new<T>(
@@ -47,18 +47,34 @@ impl fmt::Debug for Error {
     }
 }
 
-type Output<T> = Result<(T, String), Error>;
-type Combinator<T> = Arc<dyn Fn(&str) -> Output<T>>;
+/// The Output type represents the output of a parser.
+/// Ok(T, String) result represents successfully parsed & lexed input.
+/// The T type represents the consumed and lexed input,
+/// and the String represents the remaining input.
+pub type Output<T> = Result<(T, String), Error>;
 
+/// A Parser has a function that consumes input
+/// and returns an object of type Output.
 #[derive(Clone)]
 pub struct Parser<T> {
-    parser: Combinator<T>,
+    parser: Arc<dyn Fn(&str) -> Output<T>>,
 }
 
 impl<T> Parser<T>
 where
     T: 'static + Clone,
 {
+    /// Create a new parser from a function that returns an Output.
+    /// This is mainly used to define the atomic combinators
+    pub fn new(parser: impl Fn(&str) -> Output<T> + 'static) -> Self {
+        Self {
+            parser: Arc::new(parser),
+        }
+    }
+
+    /// This parses a string using this combinator, and returns
+    /// a result containing either the successfully lexed and parsed
+    /// data, or an error containing info about the failure.
     pub fn parse(&self, input: &str) -> Result<T, Error> {
         match self.parse_internal(input) {
             Ok(t) => Ok(t.0),
@@ -66,16 +82,15 @@ where
         }
     }
 
+    /// This is used by the atomic combinators for things like
+    /// control flow and passing the output of one parser into another.
     pub fn parse_internal(&self, input: &str) -> Output<T> {
         (self.parser)(input)
     }
 
-    fn new(parser: impl Fn(&str) -> Output<T> + 'static) -> Self {
-        Self {
-            parser: Arc::new(parser),
-        }
-    }
-
+    /// This maps takes a function that takes the output of this Parser,
+    /// and converts it to the output of another data type.
+    /// This allows us to lex our input as we parse it.
     pub fn map<O>(self, map_fn: fn(T) -> O) -> Parser<O>
     where
         O: 'static + Clone,
@@ -86,62 +101,84 @@ where
         })
     }
 
+    /// This parser "prefixes" another.
+    /// When the returned parser is used, it will require this parser and
+    /// the operand parser to succeed, and return the result of the second.
     pub fn prefixes<O>(self, operand: Parser<O>) -> Parser<O>
     where
         O: 'static + Clone,
     {
         Parser::new(move |s: &str| {
-            let (_, output) = self.parse_internal(s)?;
-            let (second, output) = operand.parse_internal(&output)?;
-            Ok((second, output))
+            // Get the remaining input from ourselves
+            // and discard consumed input
+            let (_, remaining) = self.parse_internal(s)?;
+            // Get the consumed input and remaining input from operand
+            let (consumed, remaining) = operand.parse_internal(&remaining)?;
+            // Return result
+            Ok((consumed, remaining))
         })
     }
 
+    /// This parser will use the operand as a "suffix".
+    /// The parser will only succeed if the "suffix" parser succeeds afterwards,
+    /// but the input of the "suffix" parser will be discarded.
     pub fn suffix<O>(self, operand: Parser<O>) -> Parser<T>
     where
         O: 'static + Clone,
     {
         Parser::new(move |s: &str| {
-            let (first, output) = self.parse_internal(s)?;
-            let (_, output) = operand.parse_internal(&output)?;
-            Ok((first, output))
+            // Get consumed input and remaining input from ourselves
+            let (consumed, remaining) = self.parse_internal(s)?;
+            // Consume the input from the remaining,
+            // but discard the consumed result.
+            let (_, remaining) = operand.parse_internal(&remaining)?;
+            // Return result
+            Ok((consumed, remaining))
         })
     }
 
+    /// Combine two parsers into one, and combine their consumed
+    /// inputs into a tuple.
+    /// Parser<A> & Parser<B> -> Parser<A, B>.
+    /// The resulting parser will only succeed if BOTH sub-parsers succeed.
     pub fn and<O>(self, operand: Parser<O>) -> Parser<(T, O)>
     where
         O: 'static + Clone,
     {
         Parser::new(move |s: &str| {
-            let (first, output) = self.parse_internal(s)?;
-            let (second, output) = operand.parse_internal(&output)?;
-            Ok(((first, second), output))
+            // Get the first consumed and remaining
+            let (first_consumed, remaining) = self.parse_internal(s)?;
+            // Get the second consumed and remaining
+            let (second_consumed, remaining) = operand.parse_internal(&remaining)?;
+            // Return a tuple of first and second
+            Ok(((first_consumed, second_consumed), remaining))
         })
     }
 
+    /// If this parser does not succeed, try this other parser
     pub fn or(self, operand: Self) -> Self {
         Parser::new(move |s: &str| match self.parse_internal(s) {
+            // If we succeed, return OUR result
             Ok(t) => Ok(t),
+            // If we don't succeed, return the other parser's result
+            // We can safely discard OUR error here because we expect failure.
             Err(_) => operand.parse_internal(s),
         })
     }
 
-    pub fn discard(self) -> Parser<()> {
-        Parser::new(move |s: &str| match self.parse_internal(s) {
-            Ok((_, input)) => Ok(((), input)),
-            Err(e) => Err(e),
-        })
-    }
-
+    /// Repeat this parser N..M times
+    /// This can also be repeated ..N times, N.. times, or even .. times
     pub fn repeat(self, range: impl RangeBounds<usize>) -> Parser<Vec<T>> {
-        let end = match range.end_bound() {
+        // Get the upper bound
+        let upper_bound: usize = match range.end_bound() {
             Unbounded => &core::usize::MAX,
             Excluded(n) => n,
             Included(n) => n,
         }
         .clone();
 
-        let start = match range.start_bound() {
+        // Get the lower bound
+        let lower_bound: usize = match range.start_bound() {
             Unbounded => &0,
             Excluded(n) => n,
             Included(n) => n,
@@ -149,28 +186,36 @@ where
         .clone();
 
         Parser::new(move |s: &str| {
-            let mut input = s.to_string();
+            // The string containing the remaining input
+            let mut remaining_input = s.to_string();
+            // This accumulates all the consumed and lexed outputs
+            // from all the successfully parsed inputs
             let mut accum = vec![];
-            for n in 0..end {
-                match self.parse_internal(&input) {
-                    Ok((out, unconsumed)) => {
-                        accum.push(out);
-                        input = unconsumed;
+
+            for n in 0..upper_bound {
+                match self.parse_internal(&remaining_input) {
+                    Ok((consumed, unconsumed)) => {
+                        accum.push(consumed);
+                        remaining_input = unconsumed;
                     }
                     Err(e) => {
-                        if n < start {
+                        // If we did not consume enough data, we failed.
+                        // If consumed greater than the lower bound, we succeeded!
+                        if n < lower_bound {
                             return Err(e);
                         } else {
-                            return Ok((accum, input));
+                            return Ok((accum, remaining_input));
                         }
                     }
                 }
             }
-            Ok((accum, input))
+            // Return the vector of consumed inputs
+            Ok((accum, remaining_input))
         })
     }
 }
 
+/// The | operator can be used as an alternative to the `.or` method
 impl<T: 'static + Clone> BitOr for Parser<T> {
     type Output = Parser<T>;
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -178,6 +223,7 @@ impl<T: 'static + Clone> BitOr for Parser<T> {
     }
 }
 
+/// The & operator can be used as an alternative to the `.and` method
 impl<A: 'static + Clone, B: 'static + Clone> BitAnd<Parser<B>> for Parser<A> {
     type Output = Parser<(A, B)>;
     fn bitand(self, rhs: Parser<B>) -> Self::Output {
@@ -185,6 +231,9 @@ impl<A: 'static + Clone, B: 'static + Clone> BitAnd<Parser<B>> for Parser<A> {
     }
 }
 
+/// The ! operator returns a parser that does not consume input,
+/// but succeeds if the input parser does not succeed. This can be
+/// used to make assertions for our input.
 impl<T: 'static + Clone> Not for Parser<T> {
     type Output = Parser<()>;
     fn not(self) -> Self::Output {
@@ -192,6 +241,7 @@ impl<T: 'static + Clone> Not for Parser<T> {
     }
 }
 
+/// Discard the consumed data of the RHS
 impl<A: 'static + Clone, B: 'static + Clone> Shl<Parser<B>> for Parser<A> {
     type Output = Parser<A>;
     fn shl(self, rhs: Parser<B>) -> Self::Output {
@@ -199,6 +249,7 @@ impl<A: 'static + Clone, B: 'static + Clone> Shl<Parser<B>> for Parser<A> {
     }
 }
 
+/// Discard the consumed data of the LHS
 impl<A: 'static + Clone, B: 'static + Clone> Shr<Parser<B>> for Parser<A> {
     type Output = Parser<B>;
     fn shr(self, rhs: Parser<B>) -> Self::Output {
@@ -206,6 +257,8 @@ impl<A: 'static + Clone, B: 'static + Clone> Shr<Parser<B>> for Parser<A> {
     }
 }
 
+/// A parser can be multiplied by a range as an alternative to `.repeat`.
+/// Here's an example: `sym('a') * (..7)`
 impl<T: 'static + Clone, R: RangeBounds<usize>> Mul<R> for Parser<T> {
     type Output = Parser<Vec<T>>;
     fn mul(self, rhs: R) -> Self::Output {
@@ -213,6 +266,7 @@ impl<T: 'static + Clone, R: RangeBounds<usize>> Mul<R> for Parser<T> {
     }
 }
 
+/// The - operator is used as an alternative to the `.map` method.
 impl<O, T> Sub<fn(T) -> O> for Parser<T>
 where
     O: 'static + Clone,
@@ -222,136 +276,4 @@ where
     fn sub(self, rhs: fn(T) -> O) -> Self::Output {
         self.map(rhs)
     }
-}
-
-pub fn sym(symbol: char) -> Parser<char> {
-    Parser::new(move |s: &str| {
-        if Some(symbol.clone()) == s.chars().nth(0) {
-            Ok((symbol, s[1..].to_string()))
-        } else {
-            let actual = match s.chars().nth(0) {
-                Some(ch) => ch,
-                None => '\0',
-            };
-            Error::new(actual, symbol, s)
-        }
-    })
-}
-
-pub fn seq(symbol: &'static str) -> Parser<String> {
-    Parser::new(move |s: &str| {
-        let mut n = 0;
-        for ch in symbol.chars() {
-            if s.chars().nth(n) != Some(ch) {
-                return Error::new(&s[..min(symbol.len(), s.len())], symbol, s);
-            }
-            n += 1;
-        }
-        Ok((s[..n].to_string(), s[n..].to_string()))
-    })
-}
-
-pub fn any() -> Parser<char> {
-    Parser::new(move |s: &str| {
-        if let Some(c) = s.chars().nth(0) {
-            Ok((c, s[1..].to_string()))
-        } else {
-            return Error::new('\0', "Any character", s);
-        }
-    })
-}
-
-pub fn take_until<T>(parser: Parser<T>) -> Parser<String>
-where
-    T: 'static + Clone,
-{
-    Parser::new(move |s: &str| {
-        let mut n = 0;
-        let input = String::from(s);
-
-        while let Err(_) = parser.clone().parse(&input[0..n]) {
-            n += 1;
-            if n >= s.len() {
-                n -= 1;
-                break;
-            }
-        }
-
-        Ok((input[0..n].to_string(), input[n..].to_string()))
-    })
-}
-
-pub fn one_of(options: &'static [u8]) -> Parser<char> {
-    Parser::new(move |s: &str| match s.chars().nth(0) {
-        Some(ch) => {
-            if options.contains(&(ch as u8)) {
-                Ok((ch, s[1..].to_string()))
-            } else {
-                return Error::new(ch, format!("One of {:?}", options), s);
-            }
-        }
-        None => Error::new('\0', format!("One of {:?}", options), s),
-    })
-}
-
-pub fn none_of(options: &'static [u8]) -> Parser<char> {
-    Parser::new(move |s: &str| match s.chars().nth(0) {
-        Some(ch) => {
-            if options.contains(&(ch as u8)) {
-                Error::new(ch, format!("None of {:?}", options), s)
-            } else {
-                Ok((ch, s[1..].to_string()))
-            }
-        }
-        None => Error::new('\0', format!("None of {:?}", options), s),
-    })
-}
-
-pub fn not<T>(parser: Parser<T>) -> Parser<()>
-where
-    T: 'static + Clone,
-{
-    Parser::new(move |s: &str| match parser.parse_internal(s) {
-        Ok(_) => Error::new(s, format!("Not {}", s), s),
-        Err(_) => Ok(((), s.to_string())),
-    })
-}
-
-pub fn space() -> Parser<String> {
-    one_of(b" \t\r\n").repeat(0..).map(|v| v.iter().collect())
-}
-
-pub fn eof() -> Parser<()> {
-    space().prefixes(Parser::new(move |s: &str| match s.chars().nth(0) {
-        Some('\0') => Ok(((), s.to_string())),
-        Some(ch) => Error::new(ch, "EOF", s),
-        None => Ok(((), s.to_string())),
-    }))
-}
-
-pub fn list<A, B>(parser: Parser<A>, sep: Parser<B>) -> Parser<Vec<A>>
-where
-    A: 'static + Clone,
-    B: 'static + Clone,
-{
-    parser
-        .clone()
-        .suffix(sep)
-        .repeat(0..)
-        .and(parser.repeat(0..1))
-        .map(|v: (Vec<A>, Vec<A>)| {
-            let mut vec = (v.0).clone();
-            if (v.1).is_empty() {
-                return vec;
-            }
-            vec.push((v.clone().1)[0].clone());
-            vec
-        })
-}
-
-pub fn rec<T>(parser: fn() -> Parser<T>) -> Parser<T>
-where
-    T: 'static + Clone,
-{
-    Parser::new(move |s| parser().parse_internal(s))
 }

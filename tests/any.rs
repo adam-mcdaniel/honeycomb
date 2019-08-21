@@ -1,5 +1,5 @@
 extern crate comb;
-use comb::*;
+use comb::atoms::any;
 
 #[test]
 fn any_test() {

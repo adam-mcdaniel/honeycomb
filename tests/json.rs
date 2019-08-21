@@ -1,5 +1,8 @@
 extern crate comb;
-use comb::*;
+use comb::{
+    atoms::{list, none_of, one_of, rec, seq, space, sym},
+    Parser,
+};
 
 use std::collections::HashMap;
 use std::str::{self};
@@ -19,7 +22,7 @@ fn token(to_match: &'static str) -> Parser<String> {
 }
 
 fn boolean() -> Parser<JsonValue> {
-    token("true") - (|_| JsonValue::Bool(true)) | token("false") - (|_| JsonValue::Bool(false))
+    (token("true") - |_| JsonValue::Bool(true)) | (token("false") - |_| JsonValue::Bool(false))
 }
 
 fn string() -> Parser<JsonValue> {
@@ -57,11 +60,8 @@ fn object() -> Parser<JsonValue> {
         - (|v: Vec<(JsonValue, JsonValue)>| -> JsonValue {
             let mut result = HashMap::new();
             for (key, value) in v {
-                match key {
-                    JsonValue::Str(s) => {
-                        result.insert(s, value);
-                    }
-                    _ => {}
+                if let JsonValue::Str(s) = key {
+                    result.insert(s, value);
                 }
             }
             JsonValue::Object(result)

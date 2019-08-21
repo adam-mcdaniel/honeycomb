@@ -1,5 +1,5 @@
 extern crate comb;
-use comb::seq;
+use comb::atoms::seq;
 
 #[test]
 fn seq_test() {
