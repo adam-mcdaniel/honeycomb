@@ -1,10 +1,12 @@
 use core::fmt;
 use core::ops::Bound::*;
 use core::ops::{BitAnd, BitOr, Mul, Not, RangeBounds, Shl, Shr, Sub};
+use core::cmp::min;
 
 extern crate alloc;
 use alloc::sync::Arc;
 
+#[derive(Clone, PartialEq)]
 pub struct Error {
     actual: String,
     expected: String,
@@ -27,7 +29,8 @@ impl Error {
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f,
+        write!(
+            f,
             "Expected `{}` but found `{}` when parsing `{}`",
             self.expected,
             self.actual,
@@ -232,7 +235,7 @@ pub fn seq(symbol: &'static str) -> Parser<String> {
         let mut n = 0;
         for ch in symbol.chars() {
             if s.chars().nth(n) != Some(ch) {
-                return Error::new(&s[..symbol.len()], symbol, s);
+                return Error::new(&s[..min(symbol.len(), s.len())], symbol, s);
             }
             n += 1;
         }

@@ -19,7 +19,7 @@ fn token(to_match: &'static str) -> Parser<String> {
 }
 
 fn boolean() -> Parser<JsonValue> {
-    token("true") - (|_| JsonValue::Bool(true)) | token("false") - (|_| JsonValue::Bool(false))
+    (token("true") - |_| JsonValue::Bool(true)) | (token("false") - |_| JsonValue::Bool(false))
 }
 
 fn string() -> Parser<JsonValue> {
@@ -57,11 +57,8 @@ fn object() -> Parser<JsonValue> {
         - (|v: Vec<(JsonValue, JsonValue)>| -> JsonValue {
             let mut result = HashMap::new();
             for (key, value) in v {
-                match key {
-                    JsonValue::Str(s) => {
-                        result.insert(s, value);
-                    }
-                    _ => {}
+                if let JsonValue::Str(s) = key {
+                    result.insert(s, value);
                 }
             }
             JsonValue::Object(result)
@@ -71,6 +68,7 @@ fn object() -> Parser<JsonValue> {
 fn json() -> Parser<JsonValue> {
     null() | boolean() | number() | string() | rec(array) | rec(object)
 }
+
 
 fn main() {
     println!(

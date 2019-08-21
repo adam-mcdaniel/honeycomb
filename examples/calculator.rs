@@ -31,9 +31,13 @@ fn number() -> Parser<Math> {
         << space()
 }
 
+fn token(symbol: &'static str) -> Parser<String> {
+    space() >> seq(symbol) << space()
+}
+
 fn operation(symbol: char, map_fn: fn((Math, Math)) -> Math) -> Parser<Math> {
     (number() | rec(math))
-        .suffix(space() + sym(symbol) + space())
+        .suffix(space() & sym(symbol) & space())
         .and(rec(math))
         - map_fn
 }
@@ -66,7 +70,8 @@ fn math() -> Parser<Math> {
     exit()
         | eof() - (|_| Math::EOF)
         | clear()
-        | ((!none_of(NUMERAL)) >> (multiply() | divide() | add() | subtract() | number()))
+        | token("(") >> rec(math) << token(")")
+        | (!none_of(NUMERAL) >> (multiply() | divide() | add() | subtract() | number()))
 }
 
 fn eval(math: Math) -> f64 {
