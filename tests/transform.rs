@@ -1,6 +1,6 @@
 extern crate honeycomb;
 use honeycomb::{
-    atoms::{sym, opt},
+    atoms::{opt, sym},
     language::{number, punctuation, string},
     transform::{collect, to_number, to_string, unwrap_opt},
 };
