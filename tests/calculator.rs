@@ -9,19 +9,12 @@ use honeycomb::{
 #[test]
 fn calculator_test() {
     assert_eq!(eval(math().parse("1 + 3 + 4").unwrap()), 8.0);
-
     assert_eq!(eval(math().parse("4 + (1 + 3)").unwrap()), 8.0);
-
     assert_eq!(eval(math().parse("(4 + 1 + 3)").unwrap()), 8.0);
-
     assert_eq!(eval(math().parse("(4 + (1 + 3))").unwrap()), 8.0);
-
     assert_eq!(eval(math().parse("(4 + (1 * 3))").unwrap()), 7.0);
-
     assert_eq!(eval(math().parse("(4 + (1 / 2))").unwrap()), 4.5);
-
     assert_eq!(eval(math().parse("(4 + (1 - 2))").unwrap()), 3.0);
-
     assert_eq!(eval(math().parse("5").unwrap()), 5.0);
 }
 

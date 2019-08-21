@@ -1,16 +1,13 @@
 extern crate honeycomb;
 use honeycomb::{
-    atoms::{eof, none_of, rec, seq, space, sym},
+    atoms::{eof, rec, seq, space, sym},
     language::number,
     transform::to_number,
     Parser,
 };
 
 use std::io::{stdin, stdout, Write};
-
 use std::sync::Arc;
-
-const NUMERAL: &[u8] = b"0123456789.";
 
 #[derive(Clone, Debug)]
 enum Math {
@@ -64,7 +61,7 @@ fn math() -> Parser<Math> {
         | eof() - (|_| Math::EOF)
         | clear()
         | token("(") >> rec(math) << token(")")
-        | (!none_of(NUMERAL)
+        | (number().is()
             >> (multiply() | divide() | add() | subtract() | (number() - to_number - Math::Number)))
 }
 
