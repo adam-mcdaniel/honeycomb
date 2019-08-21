@@ -2,10 +2,10 @@ use core::fmt;
 use core::ops::Bound::*;
 use core::ops::{BitAnd, BitOr, Mul, Not, RangeBounds, Shl, Shr, Sub};
 
-use alloc::string::{String, ToString};
-use alloc::sync::Arc;
 /// We need alloc!
 use alloc::vec::Vec;
+use alloc::sync::Arc;
+use alloc::string::{String, ToString};
 
 use crate::atoms::not;
 
@@ -171,19 +171,17 @@ where
     pub fn repeat(self, range: impl RangeBounds<usize>) -> Parser<Vec<T>> {
         // Get the upper bound
         let upper_bound: usize = match range.end_bound() {
-            Unbounded => &core::usize::MAX,
-            Excluded(n) => n,
-            Included(n) => n,
-        }
-        .clone();
+            Unbounded => core::usize::MAX,
+            Excluded(n) => *n,
+            Included(n) => *n,
+        };
 
         // Get the lower bound
         let lower_bound: usize = match range.start_bound() {
-            Unbounded => &0,
-            Excluded(n) => n,
-            Included(n) => n,
-        }
-        .clone();
+            Unbounded => 0,
+            Excluded(n) => *n,
+            Included(n) => *n,
+        };
 
         Parser::new(move |s: &str| {
             // The string containing the remaining input

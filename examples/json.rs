@@ -1,11 +1,7 @@
 extern crate comb;
-use comb::{
-    atoms::{list, none_of, one_of, rec, seq, space, sym},
-    Parser,
-};
+use comb::{atoms::rec, language, language::token_is, Parser};
 
 use std::collections::HashMap;
-use std::str::{self};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
@@ -17,46 +13,29 @@ pub enum JsonValue {
     Object(HashMap<String, JsonValue>),
 }
 
-fn token(to_match: &'static str) -> Parser<String> {
-    space() >> seq(to_match) << space()
-}
-
 fn boolean() -> Parser<JsonValue> {
-    (token("true") - |_| JsonValue::Bool(true)) | (token("false") - |_| JsonValue::Bool(false))
+    (token_is("true") - |_| JsonValue::Bool(true))
+        | (token_is("false") - |_| JsonValue::Bool(false))
 }
 
 fn string() -> Parser<JsonValue> {
-    let special_char = sym('"');
-    let escape_sequence = sym('\\') >> special_char;
-
-    (sym('"') >> ((none_of(b"\\\"") | escape_sequence).repeat(0..)) << sym('"'))
-        .map(|v| v.iter().collect::<String>())
-        - |s| JsonValue::Str(s.replace("\\\"", "\""))
+    language::string() - JsonValue::Str
 }
 
 fn number() -> Parser<JsonValue> {
-    space()
-        >> ((one_of(b"0123456789-.") * (1..)).map(|v| v.iter().collect::<String>())
-            - |s| {
-                JsonValue::Num(match s.parse::<f64>() {
-                    Ok(n) => n,
-                    _ => 0.0,
-                })
-            })
-        << space()
+    language::number() - |s| JsonValue::Num(s.parse::<f64>().unwrap())
 }
 
 fn null() -> Parser<JsonValue> {
-    token("null") - |_| JsonValue::Null
+    token_is("null") - |_| JsonValue::Null
 }
 
 fn array() -> Parser<JsonValue> {
-    (token("[") >> list(rec(json), token(",")) << token("]"))
-        - |v: Vec<JsonValue>| JsonValue::Array(v)
+    language::array("[", json(), "]") - JsonValue::Array
 }
 
 fn object() -> Parser<JsonValue> {
-    (token("{") >> list(string() << token(":") & rec(json), token(",")) << token("}"))
+    language::array("{", string() << token_is(":") & rec(json), "}")
         - (|v: Vec<(JsonValue, JsonValue)>| -> JsonValue {
             let mut result = HashMap::new();
             for (key, value) in v {
@@ -78,6 +57,7 @@ fn main() {
         json().parse(
             r#"
 {
+    abc: 1,
     "testing" : null,
     "recursion" : {
         "WOW": 1.2345
