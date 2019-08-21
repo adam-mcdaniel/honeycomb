@@ -1,5 +1,5 @@
-extern crate comb;
-use comb::{
+extern crate honeycomb;
+use honeycomb::{
     atoms::{any, eof, if_take, none_of, seq, sym},
     Error,
 };
@@ -12,11 +12,8 @@ fn is_test() {
         sym('t').isnt().parse("test"),
         Error::new("test", "Not test", "test")
     );
-    
-    assert_eq!(
-        sym('t').isnt().parse("hey"),
-        Ok(())
-    );
+
+    assert_eq!(sym('t').isnt().parse("hey"), Ok(()));
 
     assert_eq!(
         sym('t').is().parse("hey"),

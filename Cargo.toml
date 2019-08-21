@@ -1,5 +1,5 @@
 [package]
-name = "comb"
+name = "honeycomb"
 version = "0.1.0"
 authors = ["adam-mcdaniel <adam.mcdanie17@gmail.com>"]
 edition = "2018"

@@ -1,6 +1,5 @@
-extern crate comb;
-use comb::transform::to_number;
-use comb::{atoms::rec, language, language::token_is, Parser};
+extern crate honeycomb;
+use honeycomb::{atoms::rec, language, language::token_is, transform::to_number, Parser};
 
 use std::collections::HashMap;
 

@@ -1,5 +1,5 @@
-extern crate comb;
-use comb::{
+extern crate honeycomb;
+use honeycomb::{
     atoms::{eof, rec, seq, space, sym},
     language::number,
     transform::to_number,

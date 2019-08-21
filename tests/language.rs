@@ -1,5 +1,5 @@
-extern crate comb;
-use comb::{
+extern crate honeycomb;
+use honeycomb::{
     language::{array, identifier, number, punctuation, string, token},
     Error,
 };

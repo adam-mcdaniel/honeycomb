@@ -1,5 +1,5 @@
-extern crate comb;
-use comb::language::token;
+extern crate honeycomb;
+use honeycomb::language::token;
 
 fn main() {
     println!(

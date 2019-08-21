@@ -23,3 +23,14 @@ pub fn to_number(t: impl ToString) -> f64 {
         Err(_) => 0.0,
     }
 }
+
+/// Unwrap an opt where the type has a default value
+pub fn unwrap_opt<T>(t: Option<T>) -> T
+where
+    T: Default,
+{
+    match t {
+        Some(v) => v,
+        None => Default::default(),
+    }
+}

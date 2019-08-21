@@ -87,12 +87,17 @@ pub fn number() -> Parser<String> {
     number
         - |v: ((Option<char>, String), Option<String>)| {
             let mut result = String::new();
+
+            // Add the sign component
             if let Some(ch) = (v.0).0 {
                 result.push(ch);
             }
 
+            // Add the integer component
             result += &(v.0).1;
 
+            // If the fractional component exists,
+            // append it to the result
             if let Some(s) = v.1 {
                 result += &(".".to_owned() + &s);
             }

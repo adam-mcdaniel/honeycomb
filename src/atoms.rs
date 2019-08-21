@@ -18,6 +18,10 @@ pub fn if_take(if_fn: fn(char) -> bool) -> Parser<char> {
             result_ch = '\0';
         }
 
+        // Control flow prevents reaching this line unless
+        // 1) EOF in string
+        // 2) if_fn returned false
+        // In these cases, we throw an Error.
         Error::new(
             result_ch.to_string(),
             "Result of if_take input".to_string(),
@@ -29,6 +33,8 @@ pub fn if_take(if_fn: fn(char) -> bool) -> Parser<char> {
 /// Consumes a matching character
 pub fn sym(symbol: char) -> Parser<char> {
     Parser::new(move |s: &str| {
+        // If symbol is == s[0], return symbol
+        // Otherwise, return Error
         if Some(symbol) == s.chars().nth(0) {
             Ok((symbol, s[1..].to_string()))
         } else {
@@ -42,12 +48,15 @@ pub fn sym(symbol: char) -> Parser<char> {
 }
 
 /// Consumes a matching sequence of characters
-pub fn seq(symbol: &'static str) -> Parser<String> {
+pub fn seq(sequence: &'static str) -> Parser<String> {
     Parser::new(move |s: &str| {
+        // If every character of sequence is accounted for,
+        // consume sequence!
+        // Otherwise, return Error
         let mut n = 0;
-        for ch in symbol.chars() {
+        for ch in sequence.chars() {
             if s.chars().nth(n) != Some(ch) {
-                return Error::new(&s[..min(symbol.len(), s.len())], symbol, s);
+                return Error::new(&s[..min(sequence.len(), s.len())], sequence, s);
             }
             n += 1;
         }
@@ -58,6 +67,7 @@ pub fn seq(symbol: &'static str) -> Parser<String> {
 /// Succeeds whether or not the parser consumes input
 pub fn opt<T: 'static + Clone>(parser: Parser<T>) -> Parser<Option<T>> {
     Parser::new(move |s: &str| match parser.parse_internal(s) {
+        // Return okay either way!
         Ok((consumed, remaining)) => Ok((Some(consumed), remaining)),
         Err(_) => Ok((None, s.to_string())),
     })
