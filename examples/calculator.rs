@@ -1,5 +1,8 @@
 extern crate comb;
-use comb::*;
+use comb::{
+    atoms::{eof, none_of, one_of, rec, seq, space, sym},
+    Parser,
+};
 
 use std::io::{stdin, stdout, Write};
 

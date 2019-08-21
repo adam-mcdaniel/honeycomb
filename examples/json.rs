@@ -1,5 +1,8 @@
 extern crate comb;
-use comb::*;
+use comb::{
+    atoms::{list, none_of, one_of, rec, seq, space, sym},
+    Parser,
+};
 
 use std::collections::HashMap;
 use std::str::{self};
@@ -68,7 +71,6 @@ fn object() -> Parser<JsonValue> {
 fn json() -> Parser<JsonValue> {
     null() | boolean() | number() | string() | rec(array) | rec(object)
 }
-
 
 fn main() {
     println!(

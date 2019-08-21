@@ -1,5 +1,5 @@
 extern crate comb;
-use comb::*;
+use comb::atoms::one_of;
 
 #[derive(Debug, Clone, PartialEq)]
 struct Number(i32);
