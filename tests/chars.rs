@@ -5,6 +5,26 @@ use comb::{
 };
 
 #[test]
+fn is_test() {
+    assert_eq!(sym('a').is().parse("aaa"), Ok(()));
+
+    assert_eq!(
+        sym('t').isnt().parse("test"),
+        Error::new("test", "Not test", "test")
+    );
+    
+    assert_eq!(
+        sym('t').isnt().parse("hey"),
+        Ok(())
+    );
+
+    assert_eq!(
+        sym('t').is().parse("hey"),
+        Error::new("hey", "Not hey", "hey")
+    );
+}
+
+#[test]
 fn if_take_test() {
     assert_eq!(
         (if_take(|ch| ch == 'a') * (1..)).parse("aaaaatest"),

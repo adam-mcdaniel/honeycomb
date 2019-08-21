@@ -1,16 +1,31 @@
 extern crate comb;
 use comb::{
-    atoms::{eof, none_of, rec, seq, space, sym},
+    atoms::{eof, rec, seq, space, sym},
     language::number,
     transform::to_number,
     Parser,
 };
 
-use std::io::{stdin, stdout, Write};
+#[test]
+fn calculator_test() {
+    assert_eq!(eval(math().parse("1 + 3 + 4").unwrap()), 8.0);
+
+    assert_eq!(eval(math().parse("4 + (1 + 3)").unwrap()), 8.0);
+
+    assert_eq!(eval(math().parse("(4 + 1 + 3)").unwrap()), 8.0);
+
+    assert_eq!(eval(math().parse("(4 + (1 + 3))").unwrap()), 8.0);
+
+    assert_eq!(eval(math().parse("(4 + (1 * 3))").unwrap()), 7.0);
+
+    assert_eq!(eval(math().parse("(4 + (1 / 2))").unwrap()), 4.5);
+
+    assert_eq!(eval(math().parse("(4 + (1 - 2))").unwrap()), 3.0);
+
+    assert_eq!(eval(math().parse("5").unwrap()), 5.0);
+}
 
 use std::sync::Arc;
-
-const NUMERAL: &[u8] = b"0123456789.";
 
 #[derive(Clone, Debug)]
 enum Math {
@@ -64,7 +79,7 @@ fn math() -> Parser<Math> {
         | eof() - (|_| Math::EOF)
         | clear()
         | token("(") >> rec(math) << token(")")
-        | (!none_of(NUMERAL)
+        | (number().is()
             >> (multiply() | divide() | add() | subtract() | (number() - to_number - Math::Number)))
 }
 
@@ -81,35 +96,5 @@ fn eval(math: Math) -> f64 {
             0.0
         }
         _ => 0.0,
-    }
-}
-
-fn input(prompt: &str) -> String {
-    let mut s = String::new();
-    print!("{}", prompt);
-
-    let _ = stdout().flush();
-    stdin()
-        .read_line(&mut s)
-        .expect("Did not enter a correct string");
-
-    if let Some('\n') = s.chars().next_back() {
-        s.pop();
-    }
-    if let Some('\r') = s.chars().next_back() {
-        s.pop();
-    }
-
-    s
-}
-
-fn main() {
-    loop {
-        let output = input(">>> ");
-
-        match math().parse(&output) {
-            Ok(m) => println!("{:#?}\n\nResult: {}", m.clone(), eval(m)),
-            Err(_) => println!("Invalid math expression!"),
-        }
     }
 }
