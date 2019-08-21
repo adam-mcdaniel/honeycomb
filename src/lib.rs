@@ -17,6 +17,10 @@ pub mod atoms;
 /// floats, and arrays.
 pub mod language;
 
+/// This module is useful for basic and common parsers, such
+/// as email address parsers, version number parsers, etc.
+pub mod basic;
+
 /// This module is useful for transforming the output of a parser
 /// into something useful. An example of this is converting a
 /// Vec<char> into a String.

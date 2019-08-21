@@ -5,6 +5,7 @@ use alloc::string::{String, ToString};
 
 /// We need alloc!
 use alloc::vec::Vec;
+use core::str::FromStr;
 
 /// Converts a Vec<char> to a String
 pub fn collect(v: Vec<char>) -> String {
@@ -17,10 +18,10 @@ pub fn to_string(t: impl ToString) -> String {
 }
 
 /// Converts a ToString to a f64
-pub fn to_number(t: impl ToString) -> f64 {
-    match t.to_string().parse::<f64>() {
+pub fn to_number<T>(t: impl ToString) -> T where T: Default + FromStr {
+    match t.to_string().parse::<T>() {
         Ok(n) => n,
-        Err(_) => 0.0,
+        Err(_) => Default::default(),
     }
 }
 
