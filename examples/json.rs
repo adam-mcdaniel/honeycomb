@@ -1,4 +1,5 @@
 extern crate comb;
+use comb::transform::to_number;
 use comb::{atoms::rec, language, language::token_is, Parser};
 
 use std::collections::HashMap;
@@ -23,7 +24,7 @@ fn string() -> Parser<JsonValue> {
 }
 
 fn number() -> Parser<JsonValue> {
-    language::number() - |s| JsonValue::Num(s.parse::<f64>().unwrap())
+    language::number() - to_number - JsonValue::Num
 }
 
 fn null() -> Parser<JsonValue> {
@@ -57,7 +58,6 @@ fn main() {
         json().parse(
             r#"
 {
-    abc: 1,
     "testing" : null,
     "recursion" : {
         "WOW": 1.2345

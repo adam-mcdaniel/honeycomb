@@ -1,9 +1,9 @@
 use crate::{Error, Parser};
 use core::cmp::min;
 
+use alloc::string::{String, ToString};
 /// We need alloc!
 use alloc::vec::Vec;
-use alloc::string::{String, ToString};
 
 /// Consumes a character if a function is true
 pub fn if_take(if_fn: fn(char) -> bool) -> Parser<char> {
@@ -107,10 +107,7 @@ pub fn not<T>(parser: Parser<T>) -> Parser<()>
 where
     T: 'static + Clone,
 {
-    Parser::new(move |s: &str| match parser.parse_internal(s) {
-        Ok(_) => Error::new(s, format!("Not {}", s), s),
-        Err(_) => Ok(((), s.to_string())),
-    })
+    !parser
 }
 
 /// Consumes nothing, but succeeds if this parser succeeds
@@ -118,10 +115,7 @@ pub fn is<T>(parser: Parser<T>) -> Parser<()>
 where
     T: 'static + Clone,
 {
-    Parser::new(move |s: &str| match parser.parse_internal(s) {
-        Ok(_) => Ok(((), s.to_string())),
-        Err(_) => Error::new(s, format!("Not {}", s), s),
-    })
+    parser.is()
 }
 
 /// Consumes whitespace

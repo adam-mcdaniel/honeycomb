@@ -1,13 +1,16 @@
+/// This module contains the Parser and Error types which
+/// contain the minimal logic for implementing the atomic
+/// parser combinators.
+
+/// Required modules and traits from core
 use core::fmt;
 use core::ops::Bound::*;
 use core::ops::{BitAnd, BitOr, Mul, Not, RangeBounds, Shl, Shr, Sub};
 
+use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 /// We need alloc!
 use alloc::vec::Vec;
-use alloc::sync::Arc;
-use alloc::string::{String, ToString};
-
-use crate::atoms::not;
 
 /// This struct is the Err result when parsing.
 /// It contains a string representing:
@@ -35,6 +38,7 @@ impl Error {
     }
 }
 
+/// Needed for assertions and general debugging
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(
@@ -137,6 +141,30 @@ where
         })
     }
 
+    /// This method returns a parser that does not consume input,
+    /// but succeeds if this parser succeeds. This can be used to
+    /// make assertions for our input.
+    pub fn is(self) -> Parser<()> {
+        Parser::new(move |s: &str| match self.parse_internal(s) {
+            // If this parser succeeds, consume nothing and continue
+            Ok(_) => Ok(((), s.to_string())),
+            // If this parser fails, throw an error
+            Err(_) => Error::new(s, format!("Not {}", s), s),
+        })
+    }
+
+    /// This method returns a parser that does not consume input,
+    /// but succeeds if this parser does not succeed. This can be
+    /// used to make assertions for our input.
+    pub fn isnt(self) -> Parser<()> {
+        Parser::new(move |s: &str| match self.parse_internal(s) {
+            // If this parser succeeds, throw an error
+            Ok(_) => Error::new(s, format!("Not {}", s), s),
+            // If this parser fails, consume nothing and continue
+            Err(_) => Ok(((), s.to_string())),
+        })
+    }
+
     /// Combine two parsers into one, and combine their consumed
     /// inputs into a tuple.
     /// Parser<A> & Parser<B> -> Parser<A, B>.
@@ -229,13 +257,11 @@ impl<A: 'static + Clone, B: 'static + Clone> BitAnd<Parser<B>> for Parser<A> {
     }
 }
 
-/// The ! operator returns a parser that does not consume input,
-/// but succeeds if the input parser does not succeed. This can be
-/// used to make assertions for our input.
+/// The ! operator can be used as an alternative to the `.not` method
 impl<T: 'static + Clone> Not for Parser<T> {
     type Output = Parser<()>;
     fn not(self) -> Self::Output {
-        not(self)
+        self.isnt()
     }
 }
 

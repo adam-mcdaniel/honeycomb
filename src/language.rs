@@ -1,12 +1,18 @@
+/// This module is useful for consuming common language
+/// tokens such as strings, identifiers, punctuation,
+/// floats, and arrays
+
+/// Import necessary atoms
 use crate::{
-    atoms::{if_take, is, list, none_of, one_of, opt, seq, space, sym},
+    atoms::{if_take, list, none_of, one_of, opt, seq, space, sym},
+    transform::{collect, to_string},
     Parser,
 };
 
+use alloc::borrow::ToOwned;
+use alloc::string::String;
 /// We need alloc!
 use alloc::vec::Vec;
-use alloc::borrow::ToOwned;
-use alloc::string::{String, ToString};
 
 /// Consumes an alphabetic character
 pub fn alpha() -> Parser<char> {
@@ -41,16 +47,16 @@ pub fn token_is(to_match: &'static str) -> Parser<String> {
 /// Or Punctuation
 pub fn token() -> Parser<String> {
     space()
-        >> (string()   // Consume string
-        | number() // Consume number
+        >> (string()       // Consume string
+        | number()     // Consume number
         | identifier() // Consume identifier
-        | (punctuation() - |ch| ch.to_string()))
+        | (punctuation() - to_string))
         << space()
 }
 
 /// Consumes an alphanumeric identifier
 pub fn identifier() -> Parser<String> {
-    (is(alpha()) >> (alphanumeric() * (1..31))) - |v| v.iter().collect::<String>()
+    alpha().is() >> ((alphanumeric() * (1..31)) - collect)
 }
 
 /// Consumes a quoted string
@@ -59,11 +65,11 @@ pub fn string() -> Parser<String> {
         | sym('/')
         | sym('"')
         | sym('\'')
-        | sym('b').map(|_| '\x08')
-        | sym('f').map(|_| '\x0C')
-        | sym('n').map(|_| '\n')
-        | sym('r').map(|_| '\r')
-        | sym('t').map(|_| '\t');
+        | (sym('b') - |_| '\x08')
+        | (sym('f') - |_| '\x0C')
+        | (sym('n') - |_| '\n')
+        | (sym('r') - |_| '\r')
+        | (sym('t') - |_| '\t');
     let escape_sequence = sym('\\') >> special_char;
 
     (sym('"') >> ((none_of(b"\\\"") | escape_sequence).repeat(0..)) << sym('"'))
