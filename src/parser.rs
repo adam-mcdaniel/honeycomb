@@ -3,15 +3,23 @@ use core::ops::Bound::*;
 use core::ops::{BitAnd, BitOr, Mul, Not, RangeBounds, Shl, Shr, Sub};
 use core::cmp::min;
 
-extern crate alloc;
+/// We need alloc!
+use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::string::{String, ToString};
 
+/// This struct is the Err result when parsing.
+/// It contains a string representing:
+/// The actual input received
+/// The expected input
+/// And the remaining, unparsed input
 #[derive(Clone, PartialEq)]
 pub struct Error {
     actual: String,
     expected: String,
     remaining_input: String,
 }
+
 
 impl Error {
     pub fn new<T>(
@@ -127,7 +135,7 @@ where
 
     pub fn repeat(self, range: impl RangeBounds<usize>) -> Parser<Vec<T>> {
         let end = match range.end_bound() {
-            Unbounded => &std::usize::MAX,
+            Unbounded => &core::usize::MAX,
             Excluded(n) => n,
             Included(n) => n,
         }
