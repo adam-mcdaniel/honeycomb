@@ -1,14 +1,35 @@
 use crate::{Error, Parser};
 use core::cmp::min;
 
-use alloc::string::{String, ToString};
 /// We need alloc!
 use alloc::vec::Vec;
+use alloc::string::{String, ToString};
+
+/// Consumes a character if a function is true
+pub fn if_take(if_fn: fn(char) -> bool) -> Parser<char> {
+    Parser::new(move |s: &str| {
+        let result_ch;
+        if let Some(ch) = s.chars().nth(0) {
+            if if_fn(ch) {
+                return Ok((ch, s[1..].to_string()));
+            }
+            result_ch = ch;
+        } else {
+            result_ch = '\0';
+        }
+
+        Error::new(
+            result_ch.to_string(),
+            "Result of if_take input".to_string(),
+            s.to_string(),
+        )
+    })
+}
 
 /// Consumes a matching character
 pub fn sym(symbol: char) -> Parser<char> {
     Parser::new(move |s: &str| {
-        if Some(symbol.clone()) == s.chars().nth(0) {
+        if Some(symbol) == s.chars().nth(0) {
             Ok((symbol, s[1..].to_string()))
         } else {
             let actual = match s.chars().nth(0) {
@@ -34,13 +55,21 @@ pub fn seq(symbol: &'static str) -> Parser<String> {
     })
 }
 
+/// Succeeds whether or not the parser consumes input
+pub fn opt<T: 'static + Clone>(parser: Parser<T>) -> Parser<Option<T>> {
+    Parser::new(move |s: &str| match parser.parse_internal(s) {
+        Ok((consumed, remaining)) => Ok((Some(consumed), remaining)),
+        Err(_) => Ok((None, s.to_string())),
+    })
+}
+
 /// Consumes any character
 pub fn any() -> Parser<char> {
     Parser::new(move |s: &str| {
         if let Some(c) = s.chars().nth(0) {
             Ok((c, s[1..].to_string()))
         } else {
-            return Error::new('\0', "Any character", s);
+            Error::new('\0', "Any character", s)
         }
     })
 }
@@ -52,7 +81,7 @@ pub fn one_of(options: &'static [u8]) -> Parser<char> {
             if options.contains(&(ch as u8)) {
                 Ok((ch, s[1..].to_string()))
             } else {
-                return Error::new(ch, format!("One of {:?}", options), s);
+                Error::new(ch, format!("One of {:?}", options), s)
             }
         }
         None => Error::new('\0', format!("One of {:?}", options), s),
@@ -81,6 +110,17 @@ where
     Parser::new(move |s: &str| match parser.parse_internal(s) {
         Ok(_) => Error::new(s, format!("Not {}", s), s),
         Err(_) => Ok(((), s.to_string())),
+    })
+}
+
+/// Consumes nothing, but succeeds if this parser succeeds
+pub fn is<T>(parser: Parser<T>) -> Parser<()>
+where
+    T: 'static + Clone,
+{
+    Parser::new(move |s: &str| match parser.parse_internal(s) {
+        Ok(_) => Ok(((), s.to_string())),
+        Err(_) => Error::new(s, format!("Not {}", s), s),
     })
 }
 
