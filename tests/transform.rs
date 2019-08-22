@@ -1,6 +1,6 @@
 extern crate honeycomb;
 use honeycomb::{
-    atoms::{opt, seq_no_ws, sym, space},
+    atoms::{opt, seq_no_ws, space, sym},
     language::{number, punctuation, string},
     transform::{collect, to_btree, to_number, to_string, unwrap_opt},
 };
@@ -38,7 +38,8 @@ fn to_number_test() {
 
 #[test]
 fn to_btree_test() {
-    let key_value = ((space() >> ((string() << seq_no_ws(":")) & number()) << space()) * (..)) - to_btree;
+    let key_value =
+        ((space() >> ((string() << seq_no_ws(":")) & number()) << space()) * (..)) - to_btree;
 
     assert_eq!(key_value.parse(r#""#), Ok(BTreeMap::new()));
 
@@ -46,13 +47,18 @@ fn to_btree_test() {
     map.insert(String::from("testing"), String::from("12345"));
     map.insert(String::from("adam"), String::from("2019"));
     map.insert(String::from("hey yo dude\""), String::from("12312323212"));
-    assert_eq!(key_value.parse(r#"
+    assert_eq!(
+        key_value.parse(
+            r#"
 "testing" : 12345
 "adam" : 2019
 
 
 "hey yo dude\"" : 12312323212
-"#), Ok(map));
+"#
+        ),
+        Ok(map)
+    );
 }
 
 #[test]
