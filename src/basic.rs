@@ -1,6 +1,6 @@
 use crate::{
-    atoms::{sym, opt},
-    language::{numeral, token_is, alpha, alphanumeric, identifier},
+    atoms::{sym, opt, seq_no_ws},
+    language::{numeral, alpha, alphanumeric, identifier},
     transform::collect,
     Parser,
 };
@@ -50,10 +50,10 @@ impl Display for PhoneNumber {
 
 /// Consumes a phone number
 pub fn phone_number() -> Parser<PhoneNumber> {
-    let country_code = token_is("+") >> (numeral() * (..3)) - collect;
-    let area_code = opt(token_is("-")) >> (numeral() * (3..3)) - collect;
-    let prefix = opt(token_is("-")) >> (numeral() * (3..3)) - collect;
-    let line_number = opt(token_is("-")) >> (numeral() * (4..4)) - collect;
+    let country_code = seq_no_ws("+") >> ((numeral() * (..3)) - collect);
+    let area_code = opt(seq_no_ws("-")) >> ((numeral() * (3..3)) - collect);
+    let prefix = opt(seq_no_ws("-")) >> ((numeral() * (3..3)) - collect);
+    let line_number = opt(seq_no_ws("-")) >> ((numeral() * (4..4)) - collect);
 
     ((opt(country_code) & (area_code & (prefix & line_number)))
         - |s: (Option<String>, (String, (String, String)))| {
