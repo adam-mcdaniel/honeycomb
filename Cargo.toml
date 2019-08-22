@@ -14,7 +14,6 @@ categories = [
     "parsing",
     "embedded",
     "algorithms",
-    "text-processing",
     "parser-implementations"
 ]
 
