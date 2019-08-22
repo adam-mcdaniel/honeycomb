@@ -4,7 +4,7 @@
 
 /// Import necessary atoms
 use crate::{
-    atoms::{if_take, list, none_of, one_of, opt, seq, space, sym, seq_no_ws},
+    atoms::{if_take, list, none_of, one_of, opt, seq, seq_no_ws, space, sym},
     transform::{collect, to_string},
     Parser,
 };

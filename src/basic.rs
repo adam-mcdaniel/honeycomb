@@ -1,14 +1,13 @@
 use crate::{
-    atoms::{sym, opt, seq_no_ws},
-    language::{numeral, alpha, alphanumeric, identifier},
+    atoms::{opt, seq_no_ws, space, sym},
+    language::{alpha, alphanumeric, identifier, numeral},
     transform::collect,
     Parser,
 };
 
-use core::fmt::{Display, Formatter, Error};
+use core::fmt::{Display, Error, Formatter};
 
-use alloc::string::String;
-
+use alloc::string::{String, ToString};
 
 /// Parses an email address and returns the component preceding the '@' symbol
 /// and the domain following the '@' symbol as a tuple.
@@ -30,13 +29,12 @@ pub fn email() -> Parser<(String, String)> {
         }
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct PhoneNumber {
     pub country_code: Option<String>,
     pub area_code: String,
     pub prefix: String,
-    pub line_number: String
+    pub line_number: String,
 }
 
 impl Display for PhoneNumber {
@@ -56,12 +54,26 @@ pub fn phone_number() -> Parser<PhoneNumber> {
     let line_number = opt(seq_no_ws("-")) >> ((numeral() * (4..4)) - collect);
 
     ((opt(country_code) & (area_code & (prefix & line_number)))
-        - |s: (Option<String>, (String, (String, String)))| {
-            PhoneNumber {
-                country_code: s.0,
-                area_code: (s.1).0,
-                prefix: ((s.1).1).0,
-                line_number: ((s.1).1).1
-            }
+        - |s: (Option<String>, (String, (String, String)))| PhoneNumber {
+            country_code: s.0,
+            area_code: (s.1).0,
+            prefix: ((s.1).1).0,
+            line_number: ((s.1).1).1,
         })
+        | ((((space() >> numeral()) * (13..13)) << space())
+            - collect
+            - |s: String| PhoneNumber {
+                country_code: Some(s[0..3].to_string()),
+                area_code: s[3..6].to_string(),
+                prefix: s[6..9].to_string(),
+                line_number: s[9..13].to_string(),
+            })
+        | ((((space() >> numeral()) * (10..10)) << space())
+            - collect
+            - |s: String| PhoneNumber {
+                country_code: None,
+                area_code: s[0..3].to_string(),
+                prefix: s[3..6].to_string(),
+                line_number: s[6..10].to_string(),
+            })
 }

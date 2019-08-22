@@ -1,11 +1,10 @@
 extern crate honeycomb;
 use honeycomb::{
-    atoms::{sym, seq_no_ws, space, opt},
+    atoms::{opt, seq_no_ws, space, sym},
     language::alpha,
     transform::collect,
-    Parser
+    Parser,
 };
-
 
 #[derive(Clone, PartialEq, Debug)]
 struct Word(String);
@@ -20,28 +19,24 @@ enum Punctuation {
 #[derive(Clone, PartialEq, Debug)]
 struct Sentence {
     words: Vec<Word>,
-    punctuation: Punctuation
+    punctuation: Punctuation,
 }
 
-
 fn word() -> Parser<Word> {
-    (space() >> (alpha() * (1..)) << space())
-        - collect - Word
+    (space() >> (alpha() * (1..)) << space()) - collect - Word
 }
 
 fn punctuation() -> Parser<Punctuation> {
     ((sym('.') * (1..)) - |_| Punctuation::Period)
-    | ((sym('?') * (1..)) - |_| Punctuation::QuestionMark)
-    | ((sym('!') * (1..)) - |_| Punctuation::ExclamationPoint)
+        | ((sym('?') * (1..)) - |_| Punctuation::QuestionMark)
+        | ((sym('!') * (1..)) - |_| Punctuation::ExclamationPoint)
 }
 
 fn sentence() -> Parser<Sentence> {
     (word().is() >> (((word() << opt(seq_no_ws(","))) * (1..)) & punctuation()))
-        - |phrase: (Vec<Word>, Punctuation)| {
-            Sentence {
-                words: phrase.0,
-                punctuation: phrase.1
-            }
+        - |phrase: (Vec<Word>, Punctuation)| Sentence {
+            words: phrase.0,
+            punctuation: phrase.1,
         }
 }
 
@@ -49,9 +44,11 @@ fn paragraph() -> Parser<Vec<Sentence>> {
     sentence() * (1..)
 }
 
-
 fn main() {
-    println!("{:#?}", paragraph().parse(r#"
+    println!(
+        "{:#?}",
+        paragraph().parse(
+            r#"
 
 I look at you all see the love there thats sleeping,
 While my guitar gently weeps.
@@ -65,5 +62,7 @@ I look at the world and I notice its turning
 While my guitar gently weeps.
 With every mistake we must surely be learning,
 Still my guitar gently weeps.
-"#));
+"#
+        )
+    );
 }
