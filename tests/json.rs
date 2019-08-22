@@ -1,13 +1,18 @@
 extern crate honeycomb;
-use honeycomb::{atoms::rec, language, language::token_is, transform::to_number, Parser};
+use honeycomb::{
+    atoms::{rec, seq_no_ws},
+    language,
+    transform::{to_btree, to_number},
+    Parser,
+};
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[test]
-fn json_parser() {
+fn json_test() {
     assert_eq!(
         string().parse("\"test\\\"ing\"").unwrap(),
-        JsonValue::Str(String::from("test\"ing"))
+        String::from("test\"ing")
     );
 
     assert_eq!(
@@ -15,7 +20,7 @@ fn json_parser() {
         JsonValue::Num(119871.9193)
     );
 
-    let mut map = HashMap::new();
+    let mut map = BTreeMap::new();
     map.insert(String::from("hey jude!"), JsonValue::Num(5.0));
 
     assert_eq!(
@@ -53,16 +58,16 @@ pub enum JsonValue {
     Str(String),
     Num(f64),
     Array(Vec<JsonValue>),
-    Object(HashMap<String, JsonValue>),
+    Object(BTreeMap<String, JsonValue>),
 }
 
 fn boolean() -> Parser<JsonValue> {
-    (token_is("true") - |_| JsonValue::Bool(true))
-        | (token_is("false") - |_| JsonValue::Bool(false))
+    (seq_no_ws("true") - |_| JsonValue::Bool(true))
+        | (seq_no_ws("false") - |_| JsonValue::Bool(false))
 }
 
-fn string() -> Parser<JsonValue> {
-    language::string() - JsonValue::Str
+fn string() -> Parser<String> {
+    language::string()
 }
 
 fn number() -> Parser<JsonValue> {
@@ -70,7 +75,7 @@ fn number() -> Parser<JsonValue> {
 }
 
 fn null() -> Parser<JsonValue> {
-    token_is("null") - |_| JsonValue::Null
+    seq_no_ws("null") - |_| JsonValue::Null
 }
 
 fn array() -> Parser<JsonValue> {
@@ -78,18 +83,9 @@ fn array() -> Parser<JsonValue> {
 }
 
 fn object() -> Parser<JsonValue> {
-    language::array("{", string() << token_is(":") & rec(json), "}")
-        - (|v: Vec<(JsonValue, JsonValue)>| -> JsonValue {
-            let mut result = HashMap::new();
-            for (key, value) in v {
-                if let JsonValue::Str(s) = key {
-                    result.insert(s, value);
-                }
-            }
-            JsonValue::Object(result)
-        })
+    language::array("{", string() << seq_no_ws(":") & rec(json), "}") - to_btree - JsonValue::Object
 }
 
 fn json() -> Parser<JsonValue> {
-    null() | boolean() | number() | string() | rec(array) | rec(object)
+    null() | boolean() | number() | (string() - JsonValue::Str) | rec(array) | rec(object)
 }

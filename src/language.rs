@@ -4,7 +4,7 @@
 
 /// Import necessary atoms
 use crate::{
-    atoms::{if_take, list, none_of, one_of, opt, seq, space, sym},
+    atoms::{if_take, list, none_of, one_of, opt, seq, seq_no_ws, space, sym},
     transform::{collect, to_string},
     Parser,
 };
@@ -35,11 +35,6 @@ pub fn punctuation() -> Parser<char> {
     if_take(|ch| ch.is_ascii_punctuation())
 }
 
-/// Consumes a sequence of characters ignoring preceeding and suceeding whitespace
-pub fn token_is(to_match: &'static str) -> Parser<String> {
-    space() >> seq(to_match) << space()
-}
-
 /// Consumes a common language token like
 /// A string
 /// A number
@@ -56,7 +51,7 @@ pub fn token() -> Parser<String> {
 
 /// Consumes an alphanumeric identifier
 pub fn identifier() -> Parser<String> {
-    alpha().is() >> ((alphanumeric() * (1..31)) - collect)
+    alpha().is() >> (((alphanumeric() | sym('_')) * (1..31)) - collect)
 }
 
 /// Consumes a quoted string
@@ -112,5 +107,5 @@ pub fn array<T: 'static + Clone>(
     item: Parser<T>,
     end: &'static str,
 ) -> Parser<Vec<T>> {
-    token_is(begin) >> list(item, token_is(",")) << token_is(end)
+    seq_no_ws(begin) >> list(item, seq_no_ws(",")) << seq_no_ws(end)
 }

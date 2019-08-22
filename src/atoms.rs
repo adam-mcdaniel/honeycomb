@@ -64,6 +64,11 @@ pub fn seq(sequence: &'static str) -> Parser<String> {
     })
 }
 
+/// Consumes a sequence of characters ignoring preceeding and succeeding whitespace
+pub fn seq_no_ws(sequence: &'static str) -> Parser<String> {
+    space() >> seq(sequence) << space()
+}
+
 /// Succeeds whether or not the parser consumes input
 pub fn opt<T: 'static + Clone>(parser: Parser<T>) -> Parser<Option<T>> {
     Parser::new(move |s: &str| match parser.parse_internal(s) {

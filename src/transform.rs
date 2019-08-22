@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 /// This module is useful for transforming the output of a parser
 /// into something useful. An example of this is converting a
@@ -5,6 +6,7 @@ use alloc::string::{String, ToString};
 
 /// We need alloc!
 use alloc::vec::Vec;
+use core::str::FromStr;
 
 /// Converts a Vec<char> to a String
 pub fn collect(v: Vec<char>) -> String {
@@ -17,11 +19,28 @@ pub fn to_string(t: impl ToString) -> String {
 }
 
 /// Converts a ToString to a f64
-pub fn to_number(t: impl ToString) -> f64 {
-    match t.to_string().parse::<f64>() {
+pub fn to_number<T>(t: impl ToString) -> T
+where
+    T: Default + FromStr,
+{
+    match t.to_string().parse::<T>() {
         Ok(n) => n,
-        Err(_) => 0.0,
+        Err(_) => Default::default(),
     }
+}
+
+/// Converts a Vec<(A, B)> to BTreeMap<A, B>
+pub fn to_btree<A, B>(list: Vec<(A, B)>) -> BTreeMap<A, B>
+where
+    A: core::cmp::Ord,
+{
+    let mut map = BTreeMap::new();
+
+    for (s, y) in list {
+        map.insert(s, y);
+    }
+
+    map
 }
 
 /// Unwrap an opt where the type has a default value
