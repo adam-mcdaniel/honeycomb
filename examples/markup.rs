@@ -20,7 +20,8 @@ fn object() -> Parser<Markup> {
         >> (((space() >> identifier()
             & (seq_no_ws("{") >> markup() << (seq_no_ws("}") << space())))
             * (1..))
-            - to_btree - Markup::Object)
+            - to_btree
+            - Markup::Object)
         << space()
 }
 

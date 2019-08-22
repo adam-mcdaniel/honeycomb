@@ -1,14 +1,12 @@
-
 extern crate honeycomb;
 use honeycomb::{
     atoms::{rec, seq_no_ws},
     language,
-    transform::{to_number, to_btree},
+    transform::{to_btree, to_number},
     Parser,
 };
 
 use std::collections::BTreeMap;
-
 
 #[test]
 fn json_test() {
@@ -65,7 +63,7 @@ pub enum JsonValue {
 
 fn boolean() -> Parser<JsonValue> {
     (seq_no_ws("true") - |_| JsonValue::Bool(true))
-    | (seq_no_ws("false") - |_| JsonValue::Bool(false))
+        | (seq_no_ws("false") - |_| JsonValue::Bool(false))
 }
 
 fn string() -> Parser<String> {
@@ -85,8 +83,7 @@ fn array() -> Parser<JsonValue> {
 }
 
 fn object() -> Parser<JsonValue> {
-    language::array("{", string() << seq_no_ws(":") & rec(json), "}")
-        - to_btree - JsonValue::Object
+    language::array("{", string() << seq_no_ws(":") & rec(json), "}") - to_btree - JsonValue::Object
 }
 
 fn json() -> Parser<JsonValue> {

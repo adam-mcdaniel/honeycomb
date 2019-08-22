@@ -58,11 +58,11 @@ fn clear() -> Parser<Math> {
 
 fn math() -> Parser<Math> {
     exit()
-    | eof() - (|_| Math::EOF)
-    | clear()
-    | token("(") >> rec(math) << token(")")
-    | (number().is()
-    >> (multiply() | divide() | add() | subtract() | (number() - to_number - Math::Number)))
+        | eof() - (|_| Math::EOF)
+        | clear()
+        | token("(") >> rec(math) << token(")")
+        | (number().is()
+            >> (multiply() | divide() | add() | subtract() | (number() - to_number - Math::Number)))
 }
 
 fn eval(math: Math) -> f64 {
