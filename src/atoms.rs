@@ -64,7 +64,7 @@ pub fn seq(sequence: &'static str) -> Parser<String> {
     })
 }
 
-/// Consumes a sequence of characters ignoring preceeding and suceeding whitespace
+/// Consumes a sequence of characters ignoring preceeding and succeeding whitespace
 pub fn seq_no_ws(sequence: &'static str) -> Parser<String> {
     space() >> seq(sequence) << space()
 }
