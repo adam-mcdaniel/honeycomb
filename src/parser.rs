@@ -5,12 +5,12 @@
 /// Required modules and traits from core
 use core::fmt;
 use core::ops::Bound::*;
-use core::ops::{BitAnd, BitOr, Mul, Not, RangeBounds, Shl, Shr, Sub};
+use core::ops::{BitAnd, BitOr, BitXor, Mul, Not, RangeBounds, Shl, Shr, Sub};
 
-use alloc::string::{String, ToString};
-use alloc::sync::Arc;
 /// We need alloc!
 use alloc::vec::Vec;
+use alloc::sync::Arc;
+use alloc::string::{String, ToString};
 
 /// This struct is the Err result when parsing.
 /// It contains a string representing:
@@ -92,7 +92,7 @@ where
         (self.parser)(input)
     }
 
-    /// This maps takes a function that takes the output of this Parser,
+    /// This method takes a function that takes the output of this Parser,
     /// and converts it to the output of another data type.
     /// This allows us to lex our input as we parse it.
     pub fn map<O>(self, map_fn: fn(T) -> O) -> Parser<O>
@@ -101,6 +101,26 @@ where
     {
         Parser::new(move |s: &str| match self.parse_internal(s) {
             Ok((first_out, input)) => Ok((map_fn(first_out), input)),
+            Err(e) => Err(e),
+        })
+    }
+
+    /// This method takes a function that takes the output of this Parser,
+    /// and TRIES to convert it to the output of another data type.
+    /// If the given function returns an Err, this parser fails.
+    pub fn convert<O, E>(self, convert_fn: fn(T) -> Result<O, E>) -> Parser<O>
+    where
+        O: 'static + Clone,
+        E: 'static
+    {
+        Parser::new(move |s: &str| match self.parse_internal(s) {
+            Ok((first_out, input)) => {
+                let result = match convert_fn(first_out) {
+                    Ok(value) => value,
+                    Err(_) => return Error::new(s.clone(), "A convertible value", s.clone())
+                };
+                Ok((result, input))
+            },
             Err(e) => Err(e),
         })
     }
@@ -299,5 +319,18 @@ where
     type Output = Parser<O>;
     fn sub(self, rhs: fn(T) -> O) -> Self::Output {
         self.map(rhs)
+    }
+}
+
+/// The ^ operator is used as an alternative to the `.convert` method.
+impl<O, T, E> BitXor<fn(T) -> Result<O, E>> for Parser<T>
+where
+    O: 'static + Clone,
+    T: 'static + Clone,
+    E: 'static
+{
+    type Output = Parser<O>;
+    fn bitxor(self, rhs: fn(T) -> Result<O, E>) -> Self::Output {
+        self.convert(rhs)
     }
 }
