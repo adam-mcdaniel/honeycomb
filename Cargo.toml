@@ -1,6 +1,6 @@
 [package]
 name = "honeycomb"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Adam McDaniel <adam.mcdanie17@gmail.com>"]
 edition = "2018"
 description = "A portable parser combinator library that does not require a runtime"
@@ -9,6 +9,14 @@ readme = "README.md"
 repository = "https://github.com/adam-mcdaniel/honeycomb"
 homepage = "https://github.com/adam-mcdaniel/honeycomb"
 documentation = "https://docs.rs/honeycomb"
+categories = [
+    "no-std",
+    "parsing",
+    "embedded",
+    "algorithms",
+    "text-processing",
+    "parser-implementations"
+]
 
 [lib]
 doctest = false
