@@ -88,6 +88,25 @@ fn number_test() {
     assert_eq!(number().parse("  01  "), Ok(String::from("01")));
     assert_eq!(number().parse("  1.0112  "), Ok(String::from("1.0112")));
     assert_eq!(number().parse("  1.  "), Ok(String::from("1")));
+
+
+
+    let number_convert = number() ^ |n| n.parse::<i32>();
+
+    assert_eq!(
+        number_convert.parse("123"),
+        Ok(123)
+    );
+
+    assert_eq!(
+        number_convert.parse("123"),
+        Ok(123)
+    );
+
+    assert_eq!(
+        number_convert.parse("12.33"),
+        Error::new("12.33", "A convertible value", "12.33")
+    );
 }
 
 #[test]
