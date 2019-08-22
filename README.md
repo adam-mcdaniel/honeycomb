@@ -1,6 +1,10 @@
 # honeycomb
 A portable parser combinator library that does not require a runtime
 
+## Documentation
+
+You can find documentation for honeycomb [here](https://docs.rs/rusty-ci).
+
 ## Dependencies
 
 None! Honeycomb doesn't even require the standard library!
