@@ -52,7 +52,7 @@ fn punctuation_test() {
 
     assert_eq!(
         punctuation().parse("a"),
-        Error::new("a", "Result of if_take input", "a")
+        Error::new("a", "one of ! \" # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ ` { | } ~", "a")
     );
 }
 
@@ -62,7 +62,7 @@ fn identifier_test() {
     assert_eq!(identifier().parse("testing1"), Ok(String::from("testing1")));
     assert_eq!(
         identifier().parse("123testing"),
-        Error::new("123testing", "Not 123testing", "123testing")
+        Error::new("123testing", "an identifier", "123testing")
     );
     assert_eq!(
         identifier().parse("testing13412341234"),
@@ -89,23 +89,15 @@ fn number_test() {
     assert_eq!(number().parse("  1.0112  "), Ok(String::from("1.0112")));
     assert_eq!(number().parse("  1.  "), Ok(String::from("1")));
 
-
-
     let number_convert = number() ^ |n| n.parse::<i32>();
 
-    assert_eq!(
-        number_convert.parse("123"),
-        Ok(123)
-    );
+    assert_eq!(number_convert.parse("123"), Ok(123));
 
-    assert_eq!(
-        number_convert.parse("123"),
-        Ok(123)
-    );
+    assert_eq!(number_convert.parse("123"), Ok(123));
 
     assert_eq!(
         number_convert.parse("12.33"),
-        Error::new("12.33", "A convertible value", "12.33")
+        Error::new("12.33", "a number", "12.33")
     );
 }
 

@@ -10,14 +10,14 @@ fn is_test() {
 
     assert_eq!(
         sym('t').isnt().parse("test"),
-        Error::new("test", "Not test", "test")
+        Error::new("test", "Not t", "test")
     );
 
     assert_eq!(sym('t').isnt().parse("hey"), Ok(()));
 
     assert_eq!(
         sym('t').is().parse("hey"),
-        Error::new("hey", "Not hey", "hey")
+        Error::new("hey", "t", "hey")
     );
 }
 
@@ -31,7 +31,7 @@ fn if_take_test() {
     // Test EOF
     assert_eq!(
         (if_take(|ch| ch == 'a') * (1..)).parse(""),
-        Error::new('\0', "Result of if_take input".to_string(), "".to_string(),)
+        Error::new('\0', "result of if_take input Included(1)..Unbounded times".to_string(), "".to_string())
     );
 }
 
@@ -46,7 +46,7 @@ fn none_of_test() {
     assert_eq!(none_of(b"test").parse("wow bro"), Ok('w'));
     assert_eq!(
         none_of(b"test").parse(""),
-        Error::new('\0', format!("None of {:?}", b"test"), "")
+        Error::new('\0', format!("none of {:?}", "test".chars().collect::<Vec<char>>()), "")
     );
 }
 

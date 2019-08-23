@@ -13,7 +13,7 @@ use alloc::string::{String, ToString};
 /// and the domain following the '@' symbol as a tuple.
 pub fn email() -> Parser<(String, String)> {
     // Must start with alphabetic character
-    (alpha().is()
+    ((alpha().is()
         >> (
             // Every other character in the first component must be alphanumeric,
             // or one of: '-', '_', or '.'
@@ -26,7 +26,7 @@ pub fn email() -> Parser<(String, String)> {
             let domain = (email.1).0 + "." + &(email.1).1;
 
             (address, domain)
-        }
+        }) % "a valid email address"
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,7 +59,7 @@ pub fn phone_number() -> Parser<PhoneNumber> {
             area_code: (s.1).0,
             prefix: ((s.1).1).0,
             line_number: ((s.1).1).1,
-        })
+        }) % "a valid phone number"
         | ((((space() >> numeral()) * (13..13)) << space())
             - collect
             - |s: String| PhoneNumber {
@@ -67,7 +67,7 @@ pub fn phone_number() -> Parser<PhoneNumber> {
                 area_code: s[3..6].to_string(),
                 prefix: s[6..9].to_string(),
                 line_number: s[9..13].to_string(),
-            })
+            }) % "a valid phone number"
         | ((((space() >> numeral()) * (10..10)) << space())
             - collect
             - |s: String| PhoneNumber {
@@ -75,5 +75,5 @@ pub fn phone_number() -> Parser<PhoneNumber> {
                 area_code: s[0..3].to_string(),
                 prefix: s[3..6].to_string(),
                 line_number: s[6..10].to_string(),
-            })
+            }) % "a valid phone number"
 }

@@ -5,12 +5,12 @@
 /// Required modules and traits from core
 use core::fmt;
 use core::ops::Bound::*;
-use core::ops::{BitAnd, BitOr, BitXor, Mul, Not, RangeBounds, Shl, Shr, Sub};
+use core::ops::{BitAnd, BitOr, BitXor, Mul, Not, RangeBounds, Rem, Shl, Shr, Sub};
 
+use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 /// We need alloc!
 use alloc::vec::Vec;
-use alloc::sync::Arc;
-use alloc::string::{String, ToString};
 
 /// This struct is the Err result when parsing.
 /// It contains a string representing:
@@ -62,6 +62,7 @@ pub type Output<T> = Result<(T, String), Error>;
 #[derive(Clone)]
 pub struct Parser<T> {
     parser: Arc<dyn Fn(&str) -> Output<T>>,
+    pub expectation: String,
 }
 
 impl<T> Parser<T>
@@ -70,10 +71,16 @@ where
 {
     /// Create a new parser from a function that returns an Output.
     /// This is mainly used to define the atomic combinators
-    pub fn new(parser: impl Fn(&str) -> Output<T> + 'static) -> Self {
+    pub fn new(parser: impl Fn(&str) -> Output<T> + 'static, expectation: impl ToString) -> Self {
         Self {
             parser: Arc::new(parser),
+            expectation: expectation.to_string(),
         }
+    }
+
+    pub fn expects(mut self, expectation: impl ToString) -> Self {
+        self.expectation = expectation.to_string();
+        self
     }
 
     /// This parses a string using this combinator, and returns
@@ -82,7 +89,7 @@ where
     pub fn parse(&self, input: &str) -> Result<T, Error> {
         match self.parse_internal(input) {
             Ok(t) => Ok(t.0),
-            Err(e) => Err(e),
+            Err(e) => Error::new(e.actual, self.expectation.clone(), e.remaining_input),
         }
     }
 
@@ -99,10 +106,14 @@ where
     where
         O: 'static + Clone,
     {
-        Parser::new(move |s: &str| match self.parse_internal(s) {
-            Ok((first_out, input)) => Ok((map_fn(first_out), input)),
-            Err(e) => Err(e),
-        })
+        let expect = self.expectation.clone();
+        Parser::new(
+            move |s: &str| match self.parse_internal(s) {
+                Ok((first_out, input)) => Ok((map_fn(first_out), input)),
+                Err(e) => Err(e),
+            },
+            expect,
+        )
     }
 
     /// This method takes a function that takes the output of this Parser,
@@ -111,18 +122,22 @@ where
     pub fn convert<O, E>(self, convert_fn: fn(T) -> Result<O, E>) -> Parser<O>
     where
         O: 'static + Clone,
-        E: 'static
+        E: 'static,
     {
-        Parser::new(move |s: &str| match self.parse_internal(s) {
-            Ok((first_out, input)) => {
-                let result = match convert_fn(first_out) {
-                    Ok(value) => value,
-                    Err(_) => return Error::new(s.clone(), "A convertible value", s.clone())
-                };
-                Ok((result, input))
+        let expect = self.expectation.clone();
+        Parser::new(
+            move |s: &str| match self.parse_internal(s) {
+                Ok((first_out, input)) => {
+                    let result = match convert_fn(first_out) {
+                        Ok(value) => value,
+                        Err(_) => return Error::new(s.clone(), "A convertible value", s.clone()),
+                    };
+                    Ok((result, input))
+                }
+                Err(e) => Err(e),
             },
-            Err(e) => Err(e),
-        })
+            expect,
+        )
     }
 
     /// This parser "prefixes" another.
@@ -132,15 +147,19 @@ where
     where
         O: 'static + Clone,
     {
-        Parser::new(move |s: &str| {
-            // Get the remaining input from ourselves
-            // and discard consumed input
-            let (_, remaining) = self.parse_internal(s)?;
-            // Get the consumed input and remaining input from operand
-            let (consumed, remaining) = operand.parse_internal(&remaining)?;
-            // Return result
-            Ok((consumed, remaining))
-        })
+        let expect = self.expectation.clone() + " followed by " + &operand.expectation.clone();
+        Parser::new(
+            move |s: &str| {
+                // Get the remaining input from ourselves
+                // and discard consumed input
+                let (_, remaining) = self.parse_internal(s)?;
+                // Get the consumed input and remaining input from operand
+                let (consumed, remaining) = operand.parse_internal(&remaining)?;
+                // Return result
+                Ok((consumed, remaining))
+            },
+            expect,
+        )
     }
 
     /// This parser will use the operand as a "suffix".
@@ -150,39 +169,51 @@ where
     where
         O: 'static + Clone,
     {
-        Parser::new(move |s: &str| {
-            // Get consumed input and remaining input from ourselves
-            let (consumed, remaining) = self.parse_internal(s)?;
-            // Consume the input from the remaining,
-            // but discard the consumed result.
-            let (_, remaining) = operand.parse_internal(&remaining)?;
-            // Return result
-            Ok((consumed, remaining))
-        })
+        let expect = self.expectation.clone() + " followed by " + &operand.expectation.clone();
+        Parser::new(
+            move |s: &str| {
+                // Get consumed input and remaining input from ourselves
+                let (consumed, remaining) = self.parse_internal(s)?;
+                // Consume the input from the remaining,
+                // but discard the consumed result.
+                let (_, remaining) = operand.parse_internal(&remaining)?;
+                // Return result
+                Ok((consumed, remaining))
+            },
+            expect,
+        )
     }
 
     /// This method returns a parser that does not consume input,
     /// but succeeds if this parser succeeds. This can be used to
     /// make assertions for our input.
     pub fn is(self) -> Parser<()> {
-        Parser::new(move |s: &str| match self.parse_internal(s) {
-            // If this parser succeeds, consume nothing and continue
-            Ok(_) => Ok(((), s.to_string())),
-            // If this parser fails, throw an error
-            Err(_) => Error::new(s, format!("Not {}", s), s),
-        })
+        let expect = self.expectation.clone();
+        Parser::new(
+            move |s: &str| match self.parse_internal(s) {
+                // If this parser succeeds, consume nothing and continue
+                Ok(_) => Ok(((), s.to_string())),
+                // If this parser fails, throw an error
+                Err(_) => Error::new(s, format!("Not {}", s), s),
+            },
+            expect,
+        )
     }
 
     /// This method returns a parser that does not consume input,
     /// but succeeds if this parser does not succeed. This can be
     /// used to make assertions for our input.
     pub fn isnt(self) -> Parser<()> {
-        Parser::new(move |s: &str| match self.parse_internal(s) {
-            // If this parser succeeds, throw an error
-            Ok(_) => Error::new(s, format!("Not {}", s), s),
-            // If this parser fails, consume nothing and continue
-            Err(_) => Ok(((), s.to_string())),
-        })
+        let expect = self.expectation.clone();
+        Parser::new(
+            move |s: &str| match self.parse_internal(s) {
+                // If this parser succeeds, throw an error
+                Ok(_) => Error::new(s, format!("Not {}", self.expectation), s),
+                // If this parser fails, consume nothing and continue
+                Err(_) => Ok(((), s.to_string())),
+            },
+            format!("Not {}", expect),
+        )
     }
 
     /// Combine two parsers into one, and combine their consumed
@@ -193,25 +224,33 @@ where
     where
         O: 'static + Clone,
     {
-        Parser::new(move |s: &str| {
-            // Get the first consumed and remaining
-            let (first_consumed, remaining) = self.parse_internal(s)?;
-            // Get the second consumed and remaining
-            let (second_consumed, remaining) = operand.parse_internal(&remaining)?;
-            // Return a tuple of first and second
-            Ok(((first_consumed, second_consumed), remaining))
-        })
+        let expect = self.expectation.clone() + " and " + &operand.expectation.clone();
+        Parser::new(
+            move |s: &str| {
+                // Get the first consumed and remaining
+                let (first_consumed, remaining) = self.parse_internal(s)?;
+                // Get the second consumed and remaining
+                let (second_consumed, remaining) = operand.parse_internal(&remaining)?;
+                // Return a tuple of first and second
+                Ok(((first_consumed, second_consumed), remaining))
+            },
+            expect,
+        )
     }
 
     /// If this parser does not succeed, try this other parser
     pub fn or(self, operand: Self) -> Self {
-        Parser::new(move |s: &str| match self.parse_internal(s) {
-            // If we succeed, return OUR result
-            Ok(t) => Ok(t),
-            // If we don't succeed, return the other parser's result
-            // We can safely discard OUR error here because we expect failure.
-            Err(_) => operand.parse_internal(s),
-        })
+        let expect = self.expectation.clone() + " or " + &operand.expectation.clone();
+        Parser::new(
+            move |s: &str| match self.parse_internal(s) {
+                // If we succeed, return OUR result
+                Ok(t) => Ok(t),
+                // If we don't succeed, return the other parser's result
+                // We can safely discard OUR error here because we expect failure.
+                Err(_) => operand.parse_internal(s),
+            },
+            expect,
+        )
     }
 
     /// Repeat this parser N..M times
@@ -231,33 +270,46 @@ where
             Included(n) => *n,
         };
 
-        Parser::new(move |s: &str| {
-            // The string containing the remaining input
-            let mut remaining_input = s.to_string();
-            // This accumulates all the consumed and lexed outputs
-            // from all the successfully parsed inputs
-            let mut accum = vec![];
+        let expect = self.expectation.clone()
+            + &format!(" {:?}..{:?} times", range.start_bound(), range.end_bound());
+        Parser::new(
+            move |s: &str| {
+                // The string containing the remaining input
+                let mut remaining_input = s.to_string();
+                // This accumulates all the consumed and lexed outputs
+                // from all the successfully parsed inputs
+                let mut accum = vec![];
 
-            for n in 0..upper_bound {
-                match self.parse_internal(&remaining_input) {
-                    Ok((consumed, unconsumed)) => {
-                        accum.push(consumed);
-                        remaining_input = unconsumed;
-                    }
-                    Err(e) => {
-                        // If we did not consume enough data, we failed.
-                        // If consumed greater than the lower bound, we succeeded!
-                        if n < lower_bound {
-                            return Err(e);
-                        } else {
-                            return Ok((accum, remaining_input));
+                for n in 0..upper_bound {
+                    match self.parse_internal(&remaining_input) {
+                        Ok((consumed, unconsumed)) => {
+                            accum.push(consumed);
+                            remaining_input = unconsumed;
+                        }
+                        Err(e) => {
+                            // If we did not consume enough data, we failed.
+                            // If consumed greater than the lower bound, we succeeded!
+                            if n < lower_bound {
+                                return Err(e);
+                            } else {
+                                return Ok((accum, remaining_input));
+                            }
                         }
                     }
                 }
-            }
-            // Return the vector of consumed inputs
-            Ok((accum, remaining_input))
-        })
+                // Return the vector of consumed inputs
+                Ok((accum, remaining_input))
+            },
+            expect,
+        )
+    }
+}
+
+/// The | operator can be used as an alternative to the `.or` method
+impl<T: 'static + Clone, S: ToString> Rem<S> for Parser<T> {
+    type Output = Self;
+    fn rem(self, rhs: S) -> Self::Output {
+        self.expects(rhs)
     }
 }
 
@@ -327,7 +379,7 @@ impl<O, T, E> BitXor<fn(T) -> Result<O, E>> for Parser<T>
 where
     O: 'static + Clone,
     T: 'static + Clone,
-    E: 'static
+    E: 'static,
 {
     type Output = Parser<O>;
     fn bitxor(self, rhs: fn(T) -> Result<O, E>) -> Self::Output {
