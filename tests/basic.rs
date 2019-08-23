@@ -23,14 +23,14 @@ fn email_test() {
 
     assert_eq!(
         email().parse("snowball. sweet@gmail.com"),
-        Error::new(" ", "@", " sweet@gmail.com")
+        Error::new(" ", "a valid email address", " sweet@gmail.com")
     );
 
     assert_eq!(
         email().parse("–autumn-dancer@domain.com"),
         Error::new(
             "–autumn-dancer@domain.com",
-            "Not –autumn-dancer@domain.com",
+            "a valid email address",
             "–autumn-dancer@domain.com"
         )
     );
@@ -39,7 +39,7 @@ fn email_test() {
         email().parse(".snowball.sweet@domain.com"),
         Error::new(
             ".snowball.sweet@domain.com",
-            "Not .snowball.sweet@domain.com",
+            "a valid email address",
             ".snowball.sweet@domain.com"
         )
     );
