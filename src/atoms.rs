@@ -180,7 +180,7 @@ pub fn eof() -> Parser<()> {
 /// A, B
 /// A,
 /// A
-/// This parser will also consume no input.
+/// The separating parser will not consume input.
 pub fn list<A, B>(parser: Parser<A>, sep: Parser<B>) -> Parser<Vec<A>>
 where
     A: 'static + Clone,
